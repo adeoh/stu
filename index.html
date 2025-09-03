@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Link Board · Minimal</title>
+  <meta name="description" content="Add links; auto‑pull title. Edit each tile's color or background image. 4 per row. Local storage.">
+  <style>
+    :root{
+      --bg: #000000;            /* app background */
+      --panel: #0a0a0a;         /* panels/dialogs */
+      --muted: #8a8f98;
+      --ring: #2a2a2a;          /* faint gray border */
+      --text: #ffffff;
+      --radius: 10px;           /* Vercel-ish rounded */
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font: 14px/1.4 var(--font);
+      background: var(--bg);   /* solid black */
+      color: var(--text);
+    }
+
+    /* Grid: always 4 columns */
+    .grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding:18px; max-width:1100px; margin: 0 auto; }
+
+    .tile{
+      position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; border:1px solid var(--ring);
+      background:#0c0c0c; text-decoration:none; color:inherit;
+      transition: transform .12s ease, border-color .12s ease, filter .12s ease;
+    }
+    .tile:hover{ transform: translateY(-2px); border-color:#3a3a3a; filter: brightness(1.02); }
+
+    .tile .bg{ position:absolute; inset:0; background: var(--tile-bg, #111); background-size: cover; background-position:center; }
+
+    .tile .content{ position:absolute; inset:0; padding:14px; display:flex; flex-direction:column; justify-content:flex-end; }
+
+    .titleText{ font-weight:700; font-size:16px; line-height:1.2; word-break:break-word; text-shadow: 0 1px 0 rgba(0,0,0,.35); }
+    .titleText.hidden{ display:none; }
+
+    /* Controls appear on hover */
+    .controls{ position:absolute; inset:auto 8px 8px auto; display:flex; gap:6px; opacity:0; pointer-events:none; transition: opacity .12s ease; }
+    .tile:hover .controls{ opacity:1; pointer-events:auto; }
+    .iconbtn{ border:1px solid var(--ring); background:#0a0a0a; color:white; width:28px; height:28px; border-radius:var(--radius); display:grid; place-items:center; cursor:pointer; }
+    .iconbtn:hover{ border-color:#3a3a3a }
+
+    .empty{ color:var(--muted); text-align:center; padding:40px 18px; max-width:1100px; margin: 0 auto; }
+
+    /* Floating buttons (Add & Preferences) */
+    .fab{ position: fixed; right: 22px; z-index: 10; width:56px; height:56px; border-radius:16px; border:1px solid var(--ring); background:#0a0a0a; color:#fff; display:grid; place-items:center; font-size:26px; line-height:0; cursor:pointer; }
+    #fab{ bottom: 22px; }
+    #prefsBtn{ bottom: 90px; font-size:20px; }
+    .fab[aria-expanded="true"]{ border-color:#3a3a3a }
+
+    /* Composer (Add link) */
+    .sheet{ position: fixed; right: 22px; z-index: 10; width:min(560px, calc(100vw - 44px)); background: var(--panel); border:1px solid var(--ring); border-radius:14px; padding:10px; transform-origin: 100% 100%; transform: scale(.92); opacity:0; visibility:hidden; transition: transform .12s ease, opacity .12s ease, visibility .12s ease; box-shadow:none; }
+    .sheet.open{ transform: scale(1); opacity:1; visibility:visible; }
+    #composer{ bottom: 90px; }
+    #prefs{ bottom: 160px; }
+
+    .row{ display:flex; gap:10px; align-items:center; }
+    input[type="url"], input[type="text"], input[type="color"], select{
+      flex:1; min-width:0; padding:12px; border-radius:var(--radius); border:1px solid var(--ring); background:#0e0e0e; color:var(--text); outline:none; }
+    input[type="color"]{ padding:8px; height:42px; }
+
+    .btn{ border:1px solid var(--ring); background:#0a0a0a; color:#fff; padding:11px 14px; border-radius:var(--radius); font-weight:600; cursor:pointer; }
+    .btn:disabled{ opacity:.6; cursor:progress }
+    .btn:hover{ border-color:#3a3a3a }
+
+    .opts{ display:flex; gap:10px; align-items:center; padding:6px 0 }
+    .opts label{ display:flex; gap:8px; align-items:center; font-size:13px; color:#ddd }
+
+    /* Inline tile editor (icons only, autosave on mouseout) */
+    .editor{ position:absolute; inset:auto 8px 8px 8px; padding:8px; border:1px solid var(--ring); border-radius:12px; background:#111; display:flex; gap:8px; align-items:center; }
+    .editor .ico{ width:18px; height:18px; opacity:.9 }
+    .editor .group{ display:flex; align-items:center; gap:6px; background:#0e0e0e; border:1px solid var(--ring); border-radius:10px; padding:6px 8px; }
+    .editor input[type="text"]{ flex: 1; min-width:160px; }
+    .editor input[type="file"]{ display:none }
+    .editor .fileLabel{ border:1px solid var(--ring); background:#0a0a0a; color:#fff; padding:8px 10px; border-radius:var(--radius); cursor:pointer; display:grid; place-items:center; }
+    .thumb{ width:26px; height:26px; border-radius:6px; border:1px solid var(--ring); background:#222 center/cover no-repeat; }
+
+    @media (max-width: 520px){
+      .grid{ grid-auto-flow: column; grid-auto-columns: 80%; overflow-x:auto; grid-template-columns: repeat(4, 80vw); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="grid" class="grid" aria-live="polite"></div>
+    <div id="emptyState" class="empty" hidden>Nothing here yet. Tap the + to add your first link.</div>
+  </main>
+
+  <!-- Floating Add & Prefs Buttons -->
+  <button id="fab" class="fab" aria-label="Add link" aria-expanded="false" title="Add a link">＋</button>
+  <button id="prefsBtn" class="fab" aria-label="Preferences" aria-expanded="false" title="Preferences">⚙︎</button>
+
+  <!-- Add link sheet -->
+  <div id="composer" class="sheet" role="dialog" aria-modal="true">
+    <form id="composerForm" autocomplete="off">
+      <div class="row">
+        <input id="urlInput" type="url" placeholder="Paste a link, e.g. https://example.com" required />
+        <button id="addBtn" class="btn" type="submit">Add</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Preferences sheet -->
+  <div id="prefs" class="sheet" role="dialog" aria-modal="true">
+    <div class="opts"><label><input id="optHideTitles" type="checkbox"/> Hide titles</label></div>
+    <div class="row">
+      <label for="optBgColor" style="min-width:110px">Background</label>
+      <input id="optBgColor" type="color" value="#000000" style="flex:0 0 120px"/>
+      <button id="applyBg" class="btn" type="button">Apply</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label for="optFont" style="min-width:110px">Custom font</label>
+      <input id="optFont" type="text" placeholder="e.g. Inter, system-ui"/>
+      <button id="applyFont" class="btn" type="button">Apply</button>
+    </div>
+  </div>
+
+  <template id="tileTemplate">
+    <a class="tile web-link" target="_blank" rel="noopener noreferrer">
+      <div class="bg"></div>
+      <div class="content">
+        <div class="text"><div class="titleText"></div></div>
+      </div>
+      <div class="controls">
+        <button class="iconbtn" title="Edit" data-action="edit" aria-label="Edit" tabindex="-1">✎</button>
+        <button class="iconbtn" title="Remove" data-action="remove" aria-label="Remove" tabindex="-1">✕</button>
+      </div>
+    </a>
+  </template>
+
+  <template id="editorTemplate">
+    <div class="editor" role="group" aria-label="Tile settings">
+      <!-- Color group (palette icon + color input) -->
+      <div class="group" title="Background color">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 100 18 2 2 0 002-2v-1a2 2 0 012-2h1a2 2 0 000-4h-1a2 2 0 01-2-2V7a4 4 0 00-4-4z"/></svg>
+        <input class="edColor" type="color" aria-label="Background color" />
+      </div>
+      <!-- Image group (image icon + upload) -->
+      <div class="group" title="Background image">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 12.5l2.5 3 3.5-4.5L18 17H6l2.5-4.5zM9 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
+        <label class="fileLabel" aria-label="Upload image">
+          <input class="edImgFile" type="file" accept="image/*" />
+          <span>🖼️</span>
+        </label>
+        <div class="thumb" aria-hidden="true"></div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // ——— Utilities ———
+    const $ = (s, el=document) => el.querySelector(s);
+    const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
+
+    function normalizeUrl(value){
+      let v = (value || '').trim();
+      if(!v) throw new Error('Empty URL');
+      if(!/^https?:\/\//i.test(v)) v = 'https://' + v;
+      const u = new URL(v);
+      return u.href;
+    }
+
+    function domainLabelFrom(url){
+      const host = new URL(url).hostname.replace(/^www\./i,'');
+      if(/\.com$/i.test(host)){
+        const withoutCom = host.replace(/\.com$/i,'');
+        const parts = withoutCom.split('.');
+        return parts[parts.length-1];
+      }
+      return host.split('.')[0];
+    }
+
+    function hashColor(input){
+      let h=0; for(let i=0;i<input.length;i++) h = (h*31 + input.charCodeAt(i)) >>> 0;
+      const hue = h % 360; const sat = 55 + (h % 20); const light = 44 + (h % 8);
+      return `hsl(${hue} ${sat}% ${light}%)`;
+    }
+
+    async function fetchTitleViaProxy(url){
+      const strip = url.replace(/^https?:\/\//i,'');
+      const tries = [`https://r.jina.ai/https://${strip}`, `https://r.jina.ai/http://${strip}`];
+      for(const proxy of tries){
+        try{ const res = await fetch(proxy, { mode:'cors' }); if(!res.ok) continue; const text = await res.text();
+          const t1 = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+          if(t1 && t1[1]) return t1[1].trim().replace(/\s+/g,' ');
+        }catch(e){}
+      }
+      return domainLabelFrom(url);
+    }
+
+    function rgbToHex(c){
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.fillStyle = c;
+      const cs = ctx.fillStyle;
+      if(cs.startsWith('#')) return cs.length===4 ? `#${cs[1]}${cs[1]}${cs[2]}${cs[2]}${cs[3]}${cs[3]}` : cs;
+      const m = cs.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if(m){ const r=parseInt(m[1]), g=parseInt(m[2]), b=parseInt(m[3]); return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); }
+      return '#222222';
+    }
+
+    // ——— State ———
+    const STORE_KEY = 'linkboard:v4';
+    const PREFS_KEY = 'linkboard:prefs:v3';
+    /** @type {Array<{id:string,url:string,title:string,color:string,bgImg:string|null,created:number}>} */
+    let items = [];
+    let prefs = { hideTitles:false, bg:'#000000', font:'' };
+
+    function load(){
+      try{ items = JSON.parse(localStorage.getItem(STORE_KEY)||'[]') }catch{ items=[] }
+      try{ prefs = Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')) }catch{}
+      document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
+      if(prefs.font){ document.documentElement.style.setProperty('--font', prefs.font); }
+    }
+    function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(items)) }
+    function savePrefs(){ localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); }
+    function uid(){ return Math.random().toString(36).slice(2,10) }
+
+    // ——— Render ———
+    const grid = document.getElementById('grid');
+    const empty = document.getElementById('emptyState');
+    const tpl = document.getElementById('tileTemplate');
+    const edTpl = document.getElementById('editorTemplate');
+
+    function render(){
+      grid.innerHTML = '';
+      empty.hidden = items.length !== 0;
+
+      for(const it of items){
+        const node = tpl.content.firstElementChild.cloneNode(true);
+        node.href = it.url;
+        const bg = $('.bg', node);
+        const titleEl = $('.titleText', node);
+        const controls = $('.controls', node);
+
+        if(it.bgImg){
+          bg.style.backgroundImage = `url(${it.bgImg})`;
+          bg.style.backgroundColor = it.color || '#111';
+        }else{
+          bg.style.backgroundImage = 'none';
+          bg.style.backgroundColor = it.color || '#111';
+        }
+
+        const displayTitle = (it.title?.trim() || domainLabelFrom(it.url));
+        titleEl.textContent = displayTitle;
+        titleEl.classList.toggle('hidden', !!prefs.hideTitles);
+
+        controls.addEventListener('click', (e)=>{
+          const btn = e.target.closest('button'); if(!btn) return; e.preventDefault(); e.stopPropagation();
+          if(btn.dataset.action==='remove') removeItem(it.id);
+          if(btn.dataset.action==='edit') openEditor(node, it.id);
+        });
+
+        grid.appendChild(node);
+      }
+    }
+
+    function removeItem(id){ items = items.filter(x=>x.id!==id); save(); render(); }
+
+    function openEditor(tileEl, id){
+      if($('.editor', tileEl)) return; // one editor per tile
+      const it = items.find(x=>x.id===id); if(!it) return;
+      const editor = edTpl.content.firstElementChild.cloneNode(true);
+      const edColor = $('.edColor', editor);
+      const edImgFile = $('.edImgFile', editor);
+      const thumb = $('.thumb', editor);
+
+      edColor.value = rgbToHex(it.color || '#222');
+      if(it.bgImg){ thumb.style.backgroundImage = `url(${it.bgImg})`; }
+
+      // Apply immediately on color change
+      edColor.addEventListener('input', ()=>{
+        it.color = edColor.value || it.color; save(); render();
+      });
+
+      // Image upload -> data URL -> persist
+      edImgFile.addEventListener('change', ()=>{
+        const file = edImgFile.files && edImgFile.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          it.bgImg = String(reader.result);
+          save(); render();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // Autosave & close when mouse leaves the editor
+      editor.addEventListener('mouseleave', ()=>{
+        // values already applied on input/change; just remove editor
+        editor.remove();
+      });
+
+      tileEl.appendChild(editor);
+      // Prevent navigating when interacting with editor
+      editor.addEventListener('click', (e)=> e.stopPropagation(), true);
+    }
+
+    // ——— Add flow (floating composer) ———
+    const fab = document.getElementById('fab');
+    const composer = document.getElementById('composer');
+    const form = document.getElementById('composerForm');
+    const urlInput = document.getElementById('urlInput');
+    const addBtn = document.getElementById('addBtn');
+
+    function toggle(el, force){ const open = force ?? !el.classList.contains('open'); el.classList.toggle('open', open); return open; }
+
+    fab.addEventListener('click', ()=>{ const open = toggle(composer); fab.setAttribute('aria-expanded', String(open)); fab.textContent = open ? '×' : '＋'; if(open){ setTimeout(()=> urlInput.focus(), 50); }});
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault(); addBtn.disabled = true;
+      let url; try{ url = normalizeUrl(urlInput.value) }catch(err){ alert('Please enter a valid URL.'); addBtn.disabled=false; return; }
+      try{
+        const title = await fetchTitleViaProxy(url);
+        const it = { id: uid(), url, title, color: hashColor(new URL(url).hostname), bgImg: null, created: Date.now() };
+        items.unshift(it); save(); render(); urlInput.value=''; toggle(composer, false); fab.textContent='＋';
+      } catch(err){ console.error(err); alert('Could not add this link right now. Try again or enter a different URL.'); }
+      finally { addBtn.disabled=false; }
+    });
+
+    // Close composer when clicking outside
+    document.addEventListener('click', (e)=>{
+      if(composer.classList.contains('open')){
+        const within = composer.contains(e.target) || fab.contains(e.target);
+        if(!within){ toggle(composer, false); fab.textContent='＋'; }
+      }
+      if(prefsSheet.classList.contains('open')){
+        const within2 = prefsSheet.contains(e.target) || prefsBtn.contains(e.target);
+        if(!within2){ toggle(prefsSheet, false); prefsBtn.setAttribute('aria-expanded','false'); }
+      }
+    });
+
+    // ——— Preferences ———
+    const prefsBtn = document.getElementById('prefsBtn');
+    const prefsSheet = document.getElementById('prefs');
+    const optHideTitles = document.getElementById('optHideTitles');
+    const optBgColor = document.getElementById('optBgColor');
+    const optFont = document.getElementById('optFont');
+    const applyBg = document.getElementById('applyBg');
+    const applyFont = document.getElementById('applyFont');
+
+    function applyPrefsToDOM(){
+      document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
+      document.documentElement.style.setProperty('--font', prefs.font || 'system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif');
+      render();
+    }
+
+    prefsBtn.addEventListener('click', ()=>{
+      const open = toggle(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open));
+      optHideTitles.checked = !!prefs.hideTitles; optBgColor.value = prefs.bg || '#000000'; optFont.value = prefs.font || '';
+    });
+
+    optHideTitles.addEventListener('change', ()=>{ prefs.hideTitles = optHideTitles.checked; savePrefs(); applyPrefsToDOM(); });
+    applyBg.addEventListener('click', ()=>{ prefs.bg = optBgColor.value || '#000000'; savePrefs(); applyPrefsToDOM(); });
+    applyFont.addEventListener('click', ()=>{ prefs.font = (optFont.value || '').trim(); savePrefs(); applyPrefsToDOM(); });
+
+    // ——— Init ———
+    load(); render();
+  </script>
+</body>
+</html>
