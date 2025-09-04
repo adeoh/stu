@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stuart</title>
-  <meta name="description" content="Your new favorite Start Page: add links, edit tile color or background image, drag, and tweak. All saved locally.">
+  <title>Stu</title>
+  <meta name="description" content="Start Page: add links, live edit tiles, drag to reorder, and tweak preferences. All saved locally.">
   <style>
     :root{
       --bg:#000000;           /* app background */
@@ -12,32 +12,35 @@
       --muted:#8a8f98;
       --ring:#2a2a2a;         /* faint gray border */
       --text:#ffffff;
-      --radius:10px;          /* Vercel‑ish rounded */
+      --radius:10px;          /* rounded */
       --font:system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif;
+      --tile-min:160px;       /* min tile width (slider) */
+      --title-size:16px;      /* tile title font size (slider) */
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;font:14px/1.4 var(--font);background:var(--bg);color:var(--text)}
 
-    /* Grid: always 4 columns, no max width */
-    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:18px}
+    /* Grid: auto-fill (no max width) */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile-min),1fr));gap:12px;padding:18px}
 
     /* Tile */
-    .tile.web-link{position:relative;aspect-ratio:1/1;border-radius:var(--radius);overflow:hidden;border:1px solid var(--ring);background:#0c0c0c;text-decoration:none;color:inherit;transition:transform .12s ease,border-color .12s ease,filter .12s ease}
+    .tile.web-link{position:relative;aspect-ratio:1/1;border-radius:var(--radius);overflow:hidden;border:none;background:#0c0c0c;text-decoration:none;color:inherit;transition:transform .12s ease,border-color .12s ease,filter .12s ease}
     .tile:hover{transform:translateY(-2px);border-color:#3a3a3a;filter:brightness(1.02)}
     .tile[draggable="true"]{cursor:grab}
-    .tile.dragging{opacity:.8;cursor:grabbing;outline:2px dashed #3a3a3a}
-    .tile .bg{position:absolute;inset:0;background:#111;background-size:contain;background-position:center}
+    .tile.dragging{opacity:.85;cursor:grabbing;outline:2px dashed #3a3a3a}
+    .tile .bg{position:absolute;inset:0;background:#111;background-size:cover;background-position:center}
     .tile .content{position:absolute;inset:0;padding:14px;display:flex;flex-direction:column;justify-content:flex-end}
-    .titleText{font-weight:700;font-size:16px;line-height:1.2;word-break:break-word;text-shadow:0 1px 0 rgba(0,0,0,.35)}
+    .titleText{font-weight:700;font-size:var(--title-size);line-height:1.2;word-break:break-word;text-shadow:0 1px 0 rgba(0,0,0,.35)}
     .titleText.hidden{display:none}
 
     /* Hover controls (SVG icons only) */
     .controls{position:absolute;inset:auto 8px 8px auto;display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .12s ease}
     .tile:hover .controls{opacity:1;pointer-events:auto}
+    .tile.show-ctrls .controls{opacity:1;pointer-events:auto}
     .iconbtn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;width:28px;height:28px;border-radius:var(--radius);display:grid;place-items:center;cursor:pointer}
     .iconbtn:hover{border-color:#3a3a3a}
-    .iconbtn svg{width:16px;height:16px;display:block}
+    .controls, .controls *{-webkit-user-drag:none;user-drag:none}
 
     .empty{color:var(--muted);text-align:center;padding:40px 18px}
 
@@ -47,32 +50,32 @@
     #prefsBtn{bottom:90px;font-size:20px}
 
     /* Sheets (composer & prefs) */
-    .sheet{position:fixed;right:22px;z-index:10;width:fit-content;background:var(--panel);border:1px solid var(--ring);border-radius:14px;padding:12px;opacity:0;visibility:hidden;transform:scale(.98);transition:opacity .14s ease,transform .14s ease,visibility .14s ease}
+    .sheet{position:fixed;right:22px;z-index:10;width:min(560px,calc(100vw - 44px));background:var(--panel);border:1px solid var(--ring);border-radius:var(--radius);padding:12px;opacity:0;visibility:hidden;transform:scale(.98);transition:opacity .14s ease,transform .14s ease,visibility .14s ease}
     .sheet.open{opacity:1;visibility:visible;transform:scale(1)}
     #composer{bottom:90px}
     #prefs{bottom:160px}
 
-    /* Haptic-like pop animation */
-    @keyframes pop{0%{transform:scale(.98)}60%{transform:scale(1.01)}100%{transform:scale(1)}}
-    .sheet.open.pop{animation:pop 180ms cubic-bezier(.34,1.56,.64,1)}
-    @media (prefers-reduced-motion:reduce){.sheet.open.pop{animation:none}}
-
     /* Inputs & buttons */
-    input[type=url],input[type=text],input[type=color],select{flex:1;min-width:0;padding:12px;border-radius:var(--radius);border:1px solid var(--ring);background:#0e0e0e;color:var(--text);outline:none}
-    input[type=color]{padding:0;height:42px}
-    .btn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:11px 14px;border-radius:var(--radius);font-weight:600;cursor:pointer; width: 100%;}
+    input[type=url],input[type=text],input[type=color],input[type=range],select{flex:1;min-width:0;padding:12px;border-radius:var(--radius);border:1px solid var(--ring);background:#0e0e0e;color:var(--text);outline:none}
+    input[type=color]{padding:0;height:42px;width:42px}
+    input[type=range]{padding:6px}
+    input[type=file]{padding:.5rem;border-radius:var(--radius);border:1px solid var(--ring);background:#0e0e0e;color:var(--text)}
+    .btn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:11px 14px;border-radius:var(--radius);font-weight:600;cursor:pointer}
     .btn:hover{border-color:#3a3a3a}
 
-    /* Inline tile editor (icons only, autosave on mouseleave) */
-    .editor{position:absolute;inset:auto 8px 8px 8px;padding:8px;border:1px solid var(--ring);border-radius:12px;background:#111;display:flex;gap:8px;align-items:center}
-    .editor .group{display:flex;align-items:center;gap:6px;background:#0e0e0e;border:1px solid var(--ring);border-radius:10px;padding:6px 8px}
-    .editor input[type=file]{display:none}
-    .editor .fileLabel{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:8px 10px;border-radius:var(--radius);cursor:pointer;display:grid;place-items:center}
+    /* Inline tile editor — compact, live */
+    .editor{position:absolute;bottom:8px;left:8px;padding:6px;border:none;border-radius:10px;background:#111;display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:max-content;max-width:calc(100% - 16px)}
+    .editor .group{display:flex;align-items:center;gap:6px;background:transparent;border:none;padding:0;flex-wrap:wrap}
+    .editor input[type=file]{display:block}
 
-    /* Preferences: labels over inputs, 1rem spacing, toggle */
-    #prefsForm{display:flex;flex-direction:column}
-    .field{display:flex;flex-direction:column;margin-bottom:1rem}
-    .field-label{font-size:12px;color:#bbb;margin-bottom:6px}
+    /* Preferences: vertical label stacking restored */
+    #prefsForm{display:flex;flex-direction:column;gap:12px}
+    details{border:1px solid var(--ring);border-radius:12px;background:#0c0c0c}
+    summary{list-style:none;cursor:pointer;padding:10px 12px;display:flex;align-items:center;gap:10px;font-weight:700}
+    summary::-webkit-details-marker{display:none}
+    .group-body{padding:12px;display:flex;flex-direction:column;gap:1rem}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field > label{font-size:12px;color:#bbb}
     .toggle{position:relative;display:inline-flex;align-items:center;width:44px;height:26px;border-radius:999px;border:1px solid var(--ring);background:#1a1a1a;cursor:pointer}
     .toggle input{position:absolute;opacity:0;width:0;height:0}
     .toggle .track{position:absolute;inset:0;border-radius:999px}
@@ -80,12 +83,14 @@
     .toggle input:checked ~ .thumb{transform:translateX(18px)}
     .toggle input:checked ~ .track{background:#111;border-color:#3a3a3a}
 
-    /* —— Lock mode —— */
+    /* Lock mode */
     body.locked .tile .controls{opacity:0 !important; pointer-events:none !important}
     body.locked .tile[draggable="true"]{cursor:default}
     body.locked .tile.dragging{opacity:1; outline:none}
 
     @media(max-width:520px){.grid{grid-auto-flow:column;grid-auto-columns:80%;overflow-x:auto;grid-template-columns:repeat(4,80vw)}}
+    /* Under 320px: stack grid vertically */
+    @media(max-width:320px){.grid{grid-auto-flow:row;grid-auto-columns:initial;overflow-x:visible;grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -106,54 +111,75 @@
     </form>
   </div>
 
-  <!-- Preferences sheet -->
+  <!-- Preferences sheet (grouped + vertical labels) -->
   <div id="prefs" class="sheet" role="dialog" aria-modal="true">
     <form id="prefsForm" autocomplete="off">
-      <div class="field">
-        <label class="field-label" for="optLock">Lock layout</label>
-        <label class="toggle">
-          <input id="optLock" type="checkbox" />
-          <span class="track"></span><span class="thumb"></span>
-        </label>
-      </div>
-      <div class="field">
-        <label class="field-label" for="optHideTitles">Hide titles</label>
-        <label class="toggle">
-          <input id="optHideTitles" type="checkbox" />
-          <span class="track"></span><span class="thumb"></span>
-        </label>
-      </div>
-      <div class="field">
-        <label class="field-label" for="optBgColor">Background color</label>
-        <input id="optBgColor" type="color" value="#000000" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="optBgFile">Background image (upload)</label>
-        <input id="optBgFile" type="file" accept="image/*" />
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button id="applyBgFile" class="btn" type="button">Apply</button>
-          <button id="clearBgImg" class="btn" type="button" title="Clear background image">Clear</button>
+
+      <details id="grpGeneral" open>
+        <summary>General</summary>
+        <div class="group-body">
+          <div class="field">
+            <label for="optLock">Lock</label>
+            <label class="toggle" title="Lock layout">
+              <input id="optLock" type="checkbox" />
+              <span class="track"></span><span class="thumb"></span>
+            </label>
+          </div>
+          <div class="field">
+            <label for="optBgColor">Background Color</label>
+            <input id="optBgColor" type="color" value="#000000" />
+          </div>
+          <div class="field">
+            <label for="optBgFile">Background Image</label>
+            <input id="optBgFile" type="file" accept="image/*" />
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label class="field-label" for="optBgUrl">Background image URL</label>
-        <input id="optBgUrl" type="url" placeholder="https://… (optional)" />
-        <div style="display:flex;gap:8px;margin-top:8px"><button id="applyBgUrl" class="btn" type="button">Apply</button></div>
-      </div>
-      <div class="field">
-        <label class="field-label" for="optFont">Custom font</label>
-        <input id="optFont" type="text" placeholder="e.g. Inter, system-ui" />
-        <div style="display:flex;gap:8px;margin-top:8px"><button id="applyFont" class="btn" type="button">Apply</button></div>
-      </div>
-      <hr style="border:none;border-top:1px solid var(--ring);margin:4px 0 12px">
-      <div class="field">
-        <label class="field-label">Export / Import</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="exportBtn" class="btn" type="button">Export settings</button>
-          <input id="importFile" type="file" accept="application/json" style="display:none" />
-          <button id="importBtn" class="btn" type="button">Import settings</button>
+      </details>
+
+      <details id="grpStyle">
+        <summary>Style</summary>
+        <div class="group-body">
+          <div class="field">
+            <label for="optShowTitles">Show Titles</label>
+            <label class="toggle" title="Show titles">
+              <input id="optShowTitles" type="checkbox" checked />
+              <span class="track"></span><span class="thumb"></span>
+            </label>
+          </div>
+          <div class="field">
+            <label for="optTileWidth">Link Width</label>
+            <input id="optTileWidth" type="range" min="120" max="320" step="4" />
+          </div>
+          <div class="field">
+            <label for="optTitleSize">Title Size</label>
+            <input id="optTitleSize" type="range" min="12" max="28" step="1" />
+          </div>
+          <div class="field">
+            <label for="optRadius">Border Radius</label>
+            <input id="optRadius" type="range" min="4" max="24" step="1" />
+          </div>
+          <div class="field">
+            <label for="optFont">Font</label>
+            <input id="optFont" type="text" placeholder="e.g. Inter, system-ui" />
+          </div>
         </div>
-      </div>
+      </details>
+
+      <details id="grpExport">
+        <summary>Export / Import</summary>
+        <div class="group-body">
+          <div class="field">
+            <label>Export Settings</label>
+            <button id="exportBtn" class="btn" type="button">Export</button>
+          </div>
+          <div class="field">
+            <label for="importFile">Import Settings</label>
+            <input id="importFile" type="file" accept="application/json" />
+            <button id="importBtn" class="btn" type="button">Import</button>
+          </div>
+        </div>
+      </details>
+
     </form>
   </div>
 
@@ -162,33 +188,24 @@
       <div class="bg"></div>
       <div class="content"><div class="titleText"></div></div>
       <div class="controls">
-        <button class="iconbtn" data-action="edit" title="Edit" aria-label="Edit">
-          <!-- Pencil -->
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 15.5-12.5z"/></svg>
+        <button class="iconbtn" type="button" data-action="edit" title="Edit" aria-label="Edit">
+          <!-- Three dots icon -->
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
         </button>
-        <button class="iconbtn" data-action="remove" title="Remove" aria-label="Remove">
-          <!-- Trash -->
+        <button class="iconbtn" type="button" data-action="remove" title="Remove" aria-label="Remove">
+          <!-- Trash icon -->
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
         </button>
       </div>
     </a>
   </template>
 
-  <!-- Editor: icons only; options = color + image upload; includes clear image (trash); autosaves on input & closes on mouseleave -->
+  <!-- Editor: one responsive group; color box + image upload; live; delayed close on mouseleave -->
   <template id="editorTemplate">
     <div class="editor" role="group" aria-label="Tile settings">
-      <div class="group" title="Background color">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 3a9 9 0 100 18 2 2 0 002-2v-1a2 2 0 012-2h1a2 2 0 000-4h-1a2 2 0 01-2-2V7a4 4 0 00-4-4z"/></svg>
+      <div class="group" title="Tile settings">
         <input class="edColor" type="color" aria-label="Background color" />
-      </div>
-      <div class="group" title="Background image (upload)">
-        <label class="fileLabel" aria-label="Upload image">
-          <input class="edImgFile" type="file" accept="image/*" />
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 12.5l2.5 3 3.5-4.5L18 17H6l2.5-4.5zM9 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
-        </label>
-        <button class="iconbtn edClearImg" type="button" title="Remove background image" aria-label="Remove background image">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-        </button>
+        <input class="edImgFile" type="file" accept="image/*" aria-label="Upload background image" />
       </div>
     </div>
   </template>
@@ -199,14 +216,13 @@
     const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
     function normalizeUrl(value){ let v=(value||'').trim(); if(!v) throw new Error('Empty URL'); if(!/^https?:\/\//i.test(v)) v='https://'+v; return new URL(v).href; }
     function domainLabelFrom(url){ const host=new URL(url).hostname.replace(/^www\./i,''); if(/\.com$/i.test(host)){ const parts=host.replace(/\.com$/i,'').split('.'); return parts[parts.length-1]; } return host.split('.')[0]; }
-    function toHex(c){ const ctx=document.createElement('canvas').getContext('2d'); ctx.fillStyle=c; const cs=ctx.fillStyle; if(cs.startsWith('#')) return cs.length===4?`#${cs[1]}${cs[1]}${cs[2]}${cs[2]}${cs[3]}${cs[3]}`:cs; const m=cs.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); if(m){ const [r,g,b]=[+m[1],+m[2],+m[3]]; return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); } return '#222222'; }
 
     // —— State ——
-    const STORE_KEY='stu:items:v1';
-    const PREFS_KEY='stu:prefs:v1';
+    const STORE_KEY='stu:items:v2';
+    const PREFS_KEY='stu:prefs:v2';
     /** @type {Array<{id:string,url:string,title:string,color:string,bgImg:string|null,created:number}>} */
     let items=[];
-    let prefs={ hideTitles:false, bg:'#000000', bgImgData:null, bgImgUrl:'', font:'', lock:false };
+    let prefs={ lock:false, hideTitles:false, bg:'#000000', bgImgData:null, font:'', tileMin:160, titleSize:16, radius:10 };
 
     function load(){ try{items=JSON.parse(localStorage.getItem(STORE_KEY)||'[]')}catch{items=[]} try{prefs=Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}'))}catch{} applyPrefsToDOM(); }
     function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(items)); }
@@ -216,30 +232,29 @@
     // —— Render ——
     const grid=$('#grid'); const empty=$('#emptyState'); const tpl=$('#tileTemplate'); const edTpl=$('#editorTemplate');
 
+    function paintTileDOM(tileEl, it){
+      const bg=$('.bg',tileEl); const titleEl=$('.titleText',tileEl);
+      bg.style.backgroundColor = it.color || '#111';
+      bg.style.backgroundImage = it.bgImg ? `url(${it.bgImg})` : 'none';
+      titleEl.textContent = it.title?.trim() || domainLabelFrom(it.url);
+      titleEl.classList.toggle('hidden', !!prefs.hideTitles);
+    }
+
     function render(){
       grid.innerHTML=''; empty.hidden = items.length!==0;
       for(const it of items){
         const node=tpl.content.firstElementChild.cloneNode(true);
-        node.dataset.id = it.id; // for dragging
-        node.href = it.url;
-        const bg=$('.bg',node); const titleEl=$('.titleText',node); const ctrls=$('.controls',node);
-        bg.style.backgroundColor = it.color || '#111';
-        bg.style.backgroundImage = it.bgImg ? `url(${it.bgImg})` : 'none';
-        titleEl.textContent = it.title?.trim() || domainLabelFrom(it.url);
-        titleEl.classList.toggle('hidden', !!prefs.hideTitles);
+        node.dataset.id = it.id; node.href = it.url;
+        paintTileDOM(node, it);
 
-        // Controls (disabled when locked)
-        ctrls.addEventListener('click', (e)=>{
-          if(prefs.lock) return; // ignore in lock mode
-          const btn=e.target.closest('button'); if(!btn) return; e.preventDefault(); e.stopPropagation();
-          if(btn.dataset.action==='remove') { items = items.filter(x=>x.id!==it.id); save(); render(); }
-          if(btn.dataset.action==='edit') { openEditor(node, it.id); }
-        });
+        const editBtn = $('[data-action="edit"]', node);
+        const removeBtn = $('[data-action="remove"]', node);
+        editBtn.setAttribute('draggable','false'); removeBtn.setAttribute('draggable','false');
+        editBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); if(prefs.lock) return; openEditor(node, it.id); });
+        removeBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); items = items.filter(x=>x.id!==it.id); save(); render(); });
 
-        // Prevent navigation when interacting with editor
         node.addEventListener('click', (e)=>{ if(node.classList.contains('interacting')) e.preventDefault(); });
 
-        // Drag & drop (disabled when locked)
         node.setAttribute('draggable', String(!prefs.lock));
         node.addEventListener('dragstart', (e)=>{ if(prefs.lock){ e.preventDefault(); return; } node.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', it.id); });
         node.addEventListener('dragend', ()=>{ node.classList.remove('dragging'); });
@@ -249,21 +264,25 @@
     }
 
     function openEditor(tileEl, id){
-      if(prefs.lock) return; // do not open editor when locked
-      if($('.editor', tileEl)) return; // one editor per tile
+      if($('.editor', tileEl)) return;
       const it = items.find(x=>x.id===id); if(!it) return;
       const editor = edTpl.content.firstElementChild.cloneNode(true);
       const edColor = $('.edColor', editor);
       const edImgFile = $('.edImgFile', editor);
-      const edClear = $('.edClearImg', editor);
 
-      edColor.value = toHex(it.color || '#222222');
-      edColor.addEventListener('input', ()=>{ it.color = edColor.value || it.color; save(); render(); });
-      edImgFile.addEventListener('change', ()=>{ const f=edImgFile.files && edImgFile.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ it.bgImg = String(r.result); save(); render(); }; r.readAsDataURL(f); });
-      edClear.addEventListener('click', ()=>{ it.bgImg = null; save(); render(); });
+      edColor.value = it.color || '#222222';
+      edColor.addEventListener('input', ()=>{ it.color = edColor.value || it.color; it.bgImg = null; save(); paintTileDOM(tileEl, it); });
 
-      // Autosave & close when mouse leaves the editor
-      editor.addEventListener('mouseleave', ()=>{ editor.remove(); tileEl.classList.remove('interacting'); });
+      edImgFile.addEventListener('change', ()=>{ const f=edImgFile.files && edImgFile.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ it.bgImg = String(r.result); /* image wins */ save(); paintTileDOM(tileEl, it); }; r.readAsDataURL(f); });
+
+      let closeTimer=null;
+      const scheduleClose = ()=>{ clearTimeout(closeTimer); closeTimer = setTimeout(()=>{ editor.remove(); tileEl.classList.remove('interacting'); }, 1000); };
+      const cancelClose = ()=>{ clearTimeout(closeTimer); };
+      editor.addEventListener('mouseleave', scheduleClose);
+      editor.addEventListener('mouseenter', cancelClose);
+
+      const outside = (e)=>{ if(!tileEl.contains(e.target)){ editor.remove(); tileEl.classList.remove('interacting'); document.removeEventListener('pointerdown', outside, true); } };
+      document.addEventListener('pointerdown', outside, true);
 
       tileEl.appendChild(editor);
       tileEl.classList.add('interacting');
@@ -271,8 +290,8 @@
     }
 
     // —— Add flow ——
-    const fab=$('#fab'); const composer=$('#composer'); const form=$('#composerForm'); const urlInput=$('#urlInput'); const addBtn=$('#addBtn');
-    function toggleSheet(el, force){ const open = force ?? !el.classList.contains('open'); el.classList.toggle('open', open); if(open){ el.classList.add('pop'); void el.offsetWidth; el.classList.remove('pop'); try{navigator.vibrate && navigator.vibrate(10)}catch{} } return open; }
+    const fab=$('#fab'); const composer=$('#composer'); const form=$('#composerForm'); const urlInput=$('#urlInput');
+    function toggleSheet(el, force){ const open = force ?? !el.classList.contains('open'); el.classList.toggle('open', open); return open; }
     fab.addEventListener('click', ()=>{ const open = toggleSheet(composer); fab.setAttribute('aria-expanded', String(open)); fab.textContent = open ? '×' : '＋'; if(open){ setTimeout(()=> urlInput.focus(), 50); } });
 
     form.addEventListener('submit', (e)=>{
@@ -281,6 +300,37 @@
       const it = { id:uid(), url, title:domainLabelFrom(url), color:'#222222', bgImg:null, created:Date.now() };
       items.unshift(it); save(); render(); form.reset(); toggleSheet(composer,false); fab.textContent='＋';
     });
+
+    // —— Preferences ——
+    const prefsBtn=$('#prefsBtn'); const prefsSheet=$('#prefs');
+    const optShowTitles=$('#optShowTitles');
+    const optBgColor=$('#optBgColor'); const optBgFile=$('#optBgFile');
+    const optTileWidth=$('#optTileWidth'); const optTitleSize=$('#optTitleSize'); const optRadius=$('#optRadius');
+    const optFont=$('#optFont');
+    const exportBtn=$('#exportBtn'); const importBtn=$('#importBtn'); const importFile=$('#importFile');
+
+    function applyPrefsToDOM(){
+      document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
+      document.documentElement.style.setProperty('--font', prefs.font || 'system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif');
+      document.documentElement.style.setProperty('--tile-min', `${prefs.tileMin||160}px`);
+      document.documentElement.style.setProperty('--title-size', `${prefs.titleSize||16}px`);
+      document.documentElement.style.setProperty('--radius', `${prefs.radius||10}px`);
+      document.body.classList.toggle('locked', !!prefs.lock);
+      const img = prefs.bgImgData || '';
+      document.body.style.backgroundImage = img ? `url(${img})` : 'none';
+      if(img){ document.body.style.backgroundSize='cover'; document.body.style.backgroundPosition='center'; }
+      $$('.titleText').forEach(t=> t.classList.toggle('hidden', !!prefs.hideTitles));
+      render();
+    }
+
+    prefsBtn.addEventListener('click', ()=>{ const open = toggleSheet(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open)); if(open){
+      optShowTitles.checked = !prefs.hideTitles;
+      optBgColor.value=prefs.bg || '#000000';
+      optTileWidth.value=String(prefs.tileMin||160);
+      optTitleSize.value=String(prefs.titleSize||16);
+      optRadius.value=String(prefs.radius||10);
+      optFont.value=prefs.font || '';
+    }});
 
     // Close sheets when clicking outside
     document.addEventListener('click', (e)=>{
@@ -294,45 +344,22 @@
       }
     });
 
-    // —— Drag reorder (grid-level handlers) ——
-    grid.addEventListener('dragover', (e)=>{ if(prefs.lock) return; e.preventDefault(); });
-    grid.addEventListener('drop', (e)=>{
-      if(prefs.lock) return; e.preventDefault(); const fromId = e.dataTransfer.getData('text/plain'); const toTile = e.target.closest('.tile'); if(!fromId || !toTile) return; const toId = toTile.dataset.id; if(!toId || fromId===toId) return;
-      const fromIdx = items.findIndex(x=>x.id===fromId); const toIdx = items.findIndex(x=>x.id===toId);
-      if(fromIdx<0 || toIdx<0) return; const [moved] = items.splice(fromIdx,1); items.splice(toIdx,0,moved); save(); render();
-    });
-
-    // —— Preferences ——
-    const prefsBtn=$('#prefsBtn'); const prefsSheet=$('#prefs');
-    const optLock=$('#optLock');
-    const optHideTitles=$('#optHideTitles'); const optBgColor=$('#optBgColor'); const optBgFile=$('#optBgFile'); const optBgUrl=$('#optBgUrl');
-    const applyBgFile=$('#applyBgFile'); const clearBgImg=$('#clearBgImg'); const applyBgUrl=$('#applyBgUrl');
-    const optFont=$('#optFont'); const applyFont=$('#applyFont');
-    const exportBtn=$('#exportBtn'); const importBtn=$('#importBtn'); const importFile=$('#importFile');
-
-    function applyPrefsToDOM(){
-      document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
-      document.documentElement.style.setProperty('--font', prefs.font || 'system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif');
-      document.body.classList.toggle('locked', !!prefs.lock);
-      const img = prefs.bgImgData || prefs.bgImgUrl || '';
-      document.body.style.backgroundImage = img ? `url(${img})` : 'none';
-      if(img){ document.body.style.backgroundSize='cover'; document.body.style.backgroundPosition='center'; }
-      render();
-    }
-
-    prefsBtn.addEventListener('click', ()=>{ const open = toggleSheet(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open)); if(open){ optLock.checked=!!prefs.lock; optHideTitles.checked=!!prefs.hideTitles; optBgColor.value=prefs.bg || '#000000'; optFont.value=prefs.font || ''; optBgUrl.value=prefs.bgImgUrl || ''; } });
-
-    optLock && optLock.addEventListener('change', ()=>{ prefs.lock = optLock.checked; savePrefs(); applyPrefsToDOM(); });
-    optHideTitles.addEventListener('change', ()=>{ prefs.hideTitles = optHideTitles.checked; savePrefs(); applyPrefsToDOM(); });
+    // General
     optBgColor.addEventListener('input', ()=>{ prefs.bg = optBgColor.value || '#000000'; savePrefs(); applyPrefsToDOM(); });
-    applyBgFile.addEventListener('click', ()=>{ if(!optBgFile.files || !optBgFile.files[0]) return alert('Choose an image file first.'); const r=new FileReader(); r.onload=()=>{ prefs.bgImgData=String(r.result); savePrefs(); applyPrefsToDOM(); }; r.readAsDataURL(optBgFile.files[0]); });
-    applyBgUrl.addEventListener('click', ()=>{ prefs.bgImgUrl = (optBgUrl.value||'').trim(); savePrefs(); applyPrefsToDOM(); });
-    clearBgImg.addEventListener('click', ()=>{ prefs.bgImgData=null; prefs.bgImgUrl=''; savePrefs(); applyPrefsToDOM(); });
-    applyFont.addEventListener('click', ()=>{ prefs.font = (optFont.value||'').trim(); savePrefs(); applyPrefsToDOM(); });
+    optBgFile.addEventListener('change', ()=>{ const f=optBgFile.files && optBgFile.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ prefs.bgImgData=String(r.result); savePrefs(); applyPrefsToDOM(); }; r.readAsDataURL(f); });
+
+    // Style
+    optShowTitles.addEventListener('change', ()=>{ prefs.hideTitles = !optShowTitles.checked; savePrefs(); applyPrefsToDOM(); });
+    optTileWidth.addEventListener('input', ()=>{ const v = Math.max(120, Math.min(320, +optTileWidth.value||160)); prefs.tileMin = v; savePrefs(); applyPrefsToDOM(); });
+    optTitleSize.addEventListener('input', ()=>{ const v = Math.max(12, Math.min(28, +optTitleSize.value||16)); prefs.titleSize = v; savePrefs(); applyPrefsToDOM(); });
+    optRadius.addEventListener('input', ()=>{ const v = Math.max(4, Math.min(24, +optRadius.value||10)); prefs.radius = v; savePrefs(); applyPrefsToDOM(); });
+    const applyFontNow = ()=>{ prefs.font = (optFont.value||'').trim(); savePrefs(); applyPrefsToDOM(); };
+    optFont.addEventListener('change', applyFontNow);
+    optFont.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); optFont.blur(); }});
 
     // Export / Import
     exportBtn.addEventListener('click', ()=>{
-      const data = { version:'stu-v1', exportedAt: new Date().toISOString(), items, prefs };
+      const data = { version:'stu-v2', exportedAt: new Date().toISOString(), items, prefs };
       const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href=url; a.download='stu-settings.json'; a.click(); URL.revokeObjectURL(url);
