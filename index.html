@@ -60,7 +60,7 @@
     /* Inputs & buttons */
     input[type=url],input[type=text],input[type=color],select{flex:1;min-width:0;padding:12px;border-radius:var(--radius);border:1px solid var(--ring);background:#0e0e0e;color:var(--text);outline:none}
     input[type=color]{padding:0;height:42px}
-    .btn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:11px 14px;border-radius:var(--radius);font-weight:600;cursor:pointer}
+    .btn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:11px 14px;border-radius:var(--radius);font-weight:600;cursor:pointer; width: 100%;}
     .btn:hover{border-color:#3a3a3a}
 
     /* Inline tile editor (icons only, autosave on mouseleave) */
@@ -91,7 +91,7 @@
 <body>
   <main>
     <div id="grid" class="grid" aria-live="polite"></div>
-    <div id="emptyState" class="empty" hidden>No links yet. Tap + to add.</div>
+    <div id="emptyState" class="empty" hidden>No links yet. Tap ( + ) to add.</div>
   </main>
 
   <!-- Floating Add & Prefs Buttons -->
