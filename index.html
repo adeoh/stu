@@ -3,93 +3,90 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Link Board · Minimal</title>
-  <meta name="description" content="Add links; auto‑pull title. Edit each tile's color or background image. 4 per row. Local storage.">
+  <title>Stu</title>
+  <meta name="description" content="Single‑file link board: add links, edit tile color or background image, drag to reorder, and tweak global preferences. All saved locally.">
   <style>
     :root{
-      --bg: #000000;            /* app background */
-      --panel: #0a0a0a;         /* panels/dialogs */
-      --muted: #8a8f98;
-      --ring: #2a2a2a;          /* faint gray border */
-      --text: #ffffff;
-      --radius: 10px;           /* Vercel-ish rounded */
-      --font: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+      --bg:#000000;           /* app background */
+      --panel:#0a0a0a;        /* panels/dialogs */
+      --muted:#8a8f98;
+      --ring:#2a2a2a;         /* faint gray border */
+      --text:#ffffff;
+      --radius:10px;          /* Vercel‑ish rounded */
+      --font:system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0; font: 14px/1.4 var(--font);
-      background: var(--bg);   /* solid black */
-      color: var(--text);
-    }
+    body{margin:0;font:14px/1.4 var(--font);background:var(--bg);color:var(--text)}
 
-    /* Grid: always 4 columns */
-    .grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding:18px; max-width:1100px; margin: 0 auto; }
+    /* Grid: always 4 columns, no max width */
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:18px}
 
-    .tile{
-      position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; border:1px solid var(--ring);
-      background:#0c0c0c; text-decoration:none; color:inherit;
-      transition: transform .12s ease, border-color .12s ease, filter .12s ease;
-    }
-    .tile:hover{ transform: translateY(-2px); border-color:#3a3a3a; filter: brightness(1.02); }
+    /* Tile */
+    .tile.web-link{position:relative;aspect-ratio:1/1;border-radius:var(--radius);overflow:hidden;border:1px solid var(--ring);background:#0c0c0c;text-decoration:none;color:inherit;transition:transform .12s ease,border-color .12s ease,filter .12s ease}
+    .tile:hover{transform:translateY(-2px);border-color:#3a3a3a;filter:brightness(1.02)}
+    .tile[draggable="true"]{cursor:grab}
+    .tile.dragging{opacity:.8;cursor:grabbing;outline:2px dashed #3a3a3a}
+    .tile .bg{position:absolute;inset:0;background:#111;background-size:cover;background-position:center}
+    .tile .content{position:absolute;inset:0;padding:14px;display:flex;flex-direction:column;justify-content:flex-end}
+    .titleText{font-weight:700;font-size:16px;line-height:1.2;word-break:break-word;text-shadow:0 1px 0 rgba(0,0,0,.35)}
+    .titleText.hidden{display:none}
 
-    .tile .bg{ position:absolute; inset:0; background: var(--tile-bg, #111); background-size: cover; background-position:center; }
+    /* Hover controls (SVG icons only) */
+    .controls{position:absolute;inset:auto 8px 8px auto;display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .12s ease}
+    .tile:hover .controls{opacity:1;pointer-events:auto}
+    .iconbtn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;width:28px;height:28px;border-radius:var(--radius);display:grid;place-items:center;cursor:pointer}
+    .iconbtn:hover{border-color:#3a3a3a}
+    .iconbtn svg{width:16px;height:16px;display:block}
 
-    .tile .content{ position:absolute; inset:0; padding:14px; display:flex; flex-direction:column; justify-content:flex-end; }
+    .empty{color:var(--muted);text-align:center;padding:40px 18px}
 
-    .titleText{ font-weight:700; font-size:16px; line-height:1.2; word-break:break-word; text-shadow: 0 1px 0 rgba(0,0,0,.35); }
-    .titleText.hidden{ display:none; }
+    /* Floating buttons */
+    .fab{position:fixed;right:22px;z-index:10;width:56px;height:56px;border-radius:var(--radius);border:1px solid var(--ring);background:#0a0a0a;color:#fff;display:grid;place-items:center;font-size:26px;line-height:0;cursor:pointer}
+    #fab{bottom:22px}
+    #prefsBtn{bottom:90px;font-size:20px}
 
-    /* Controls appear on hover */
-    .controls{ position:absolute; inset:auto 8px 8px auto; display:flex; gap:6px; opacity:0; pointer-events:none; transition: opacity .12s ease; }
-    .tile:hover .controls{ opacity:1; pointer-events:auto; }
-    .iconbtn{ border:1px solid var(--ring); background:#0a0a0a; color:white; width:28px; height:28px; border-radius:var(--radius); display:grid; place-items:center; cursor:pointer; }
-    .iconbtn:hover{ border-color:#3a3a3a }
+    /* Sheets (composer & prefs) */
+    .sheet{position:fixed;right:22px;z-index:10;width:min(640px,calc(100vw - 44px));background:var(--panel);border:1px solid var(--ring);border-radius:14px;padding:12px;opacity:0;visibility:hidden;transform:scale(.98);transition:opacity .14s ease,transform .14s ease,visibility .14s ease}
+    .sheet.open{opacity:1;visibility:visible;transform:scale(1)}
+    #composer{bottom:90px}
+    #prefs{bottom:160px}
 
-    .empty{ color:var(--muted); text-align:center; padding:40px 18px; max-width:1100px; margin: 0 auto; }
+    /* Haptic-like pop animation */
+    @keyframes pop{0%{transform:scale(.98)}60%{transform:scale(1.01)}100%{transform:scale(1)}}
+    .sheet.open.pop{animation:pop 180ms cubic-bezier(.34,1.56,.64,1)}
+    @media (prefers-reduced-motion:reduce){.sheet.open.pop{animation:none}}
 
-    /* Floating buttons (Add & Preferences) */
-    .fab{ position: fixed; right: 22px; z-index: 10; width:56px; height:56px; border-radius:16px; border:1px solid var(--ring); background:#0a0a0a; color:#fff; display:grid; place-items:center; font-size:26px; line-height:0; cursor:pointer; }
-    #fab{ bottom: 22px; }
-    #prefsBtn{ bottom: 90px; font-size:20px; }
-    .fab[aria-expanded="true"]{ border-color:#3a3a3a }
+    /* Inputs & buttons */
+    input[type=url],input[type=text],input[type=color],select{flex:1;min-width:0;padding:12px;border-radius:var(--radius);border:1px solid var(--ring);background:#0e0e0e;color:var(--text);outline:none}
+    input[type=color]{padding:0;height:42px}
+    .btn{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:11px 14px;border-radius:var(--radius);font-weight:600;cursor:pointer}
+    .btn:hover{border-color:#3a3a3a}
 
-    /* Composer (Add link) */
-    .sheet{ position: fixed; right: 22px; z-index: 10; width:min(560px, calc(100vw - 44px)); background: var(--panel); border:1px solid var(--ring); border-radius:14px; padding:10px; transform-origin: 100% 100%; transform: scale(.92); opacity:0; visibility:hidden; transition: transform .12s ease, opacity .12s ease, visibility .12s ease; box-shadow:none; }
-    .sheet.open{ transform: scale(1); opacity:1; visibility:visible; }
-    #composer{ bottom: 90px; }
-    #prefs{ bottom: 160px; }
+    /* Inline tile editor (icons only, autosave on mouseleave) */
+    .editor{position:absolute;inset:auto 8px 8px 8px;padding:8px;border:1px solid var(--ring);border-radius:12px;background:#111;display:flex;gap:8px;align-items:center}
+    .editor .group{display:flex;align-items:center;gap:6px;background:#0e0e0e;border:1px solid var(--ring);border-radius:10px;padding:6px 8px}
+    .editor input[type=file]{display:none}
+    .editor .fileLabel{border:1px solid var(--ring);background:#0a0a0a;color:#fff;padding:8px 10px;border-radius:var(--radius);cursor:pointer;display:grid;place-items:center}
 
-    .row{ display:flex; gap:10px; align-items:center; }
-    input[type="url"], input[type="text"], input[type="color"], select{
-      flex:1; min-width:0; padding:12px; border-radius:var(--radius); border:1px solid var(--ring); background:#0e0e0e; color:var(--text); outline:none; }
-    input[type="color"]{ padding:8px; height:42px; }
+    /* Preferences: labels over inputs, 1rem spacing, toggle */
+    #prefsForm{display:flex;flex-direction:column}
+    .field{display:flex;flex-direction:column;margin-bottom:1rem}
+    .field-label{font-size:12px;color:#bbb;margin-bottom:6px}
+    .toggle{position:relative;display:inline-flex;align-items:center;width:44px;height:26px;border-radius:999px;border:1px solid var(--ring);background:#1a1a1a;cursor:pointer}
+    .toggle input{position:absolute;opacity:0;width:0;height:0}
+    .toggle .track{position:absolute;inset:0;border-radius:999px}
+    .toggle .thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s ease}
+    .toggle input:checked ~ .thumb{transform:translateX(18px)}
+    .toggle input:checked ~ .track{background:#111;border-color:#3a3a3a}
 
-    .btn{ border:1px solid var(--ring); background:#0a0a0a; color:#fff; padding:11px 14px; border-radius:var(--radius); font-weight:600; cursor:pointer; }
-    .btn:disabled{ opacity:.6; cursor:progress }
-    .btn:hover{ border-color:#3a3a3a }
-
-    .opts{ display:flex; gap:10px; align-items:center; padding:6px 0 }
-    .opts label{ display:flex; gap:8px; align-items:center; font-size:13px; color:#ddd }
-
-    /* Inline tile editor (icons only, autosave on mouseout) */
-    .editor{ position:absolute; inset:auto 8px 8px 8px; padding:8px; border:1px solid var(--ring); border-radius:12px; background:#111; display:flex; gap:8px; align-items:center; }
-    .editor .ico{ width:18px; height:18px; opacity:.9 }
-    .editor .group{ display:flex; align-items:center; gap:6px; background:#0e0e0e; border:1px solid var(--ring); border-radius:10px; padding:6px 8px; }
-    .editor input[type="text"]{ flex: 1; min-width:160px; }
-    .editor input[type="file"]{ display:none }
-    .editor .fileLabel{ border:1px solid var(--ring); background:#0a0a0a; color:#fff; padding:8px 10px; border-radius:var(--radius); cursor:pointer; display:grid; place-items:center; }
-    .thumb{ width:26px; height:26px; border-radius:6px; border:1px solid var(--ring); background:#222 center/cover no-repeat; }
-
-    @media (max-width: 520px){
-      .grid{ grid-auto-flow: column; grid-auto-columns: 80%; overflow-x:auto; grid-template-columns: repeat(4, 80vw); }
-    }
+    @media(max-width:520px){.grid{grid-auto-flow:column;grid-auto-columns:80%;overflow-x:auto;grid-template-columns:repeat(4,80vw)}}
   </style>
 </head>
 <body>
   <main>
     <div id="grid" class="grid" aria-live="polite"></div>
-    <div id="emptyState" class="empty" hidden>Nothing here yet. Tap the + to add your first link.</div>
+    <div id="emptyState" class="empty" hidden>No links yet. Tap + to add.</div>
   </main>
 
   <!-- Floating Add & Prefs Buttons -->
@@ -98,169 +95,144 @@
 
   <!-- Add link sheet -->
   <div id="composer" class="sheet" role="dialog" aria-modal="true">
-    <form id="composerForm" autocomplete="off">
-      <div class="row">
-        <input id="urlInput" type="url" placeholder="Paste a link, e.g. https://example.com" required />
-        <button id="addBtn" class="btn" type="submit">Add</button>
-      </div>
+    <form id="composerForm" autocomplete="off" style="display:flex;gap:10px;align-items:center">
+      <input id="urlInput" type="url" placeholder="https://example.com" required />
+      <button id="addBtn" class="btn" type="submit">Add</button>
     </form>
   </div>
 
   <!-- Preferences sheet -->
   <div id="prefs" class="sheet" role="dialog" aria-modal="true">
-    <div class="opts"><label><input id="optHideTitles" type="checkbox"/> Hide titles</label></div>
-    <div class="row">
-      <label for="optBgColor" style="min-width:110px">Background</label>
-      <input id="optBgColor" type="color" value="#000000" style="flex:0 0 120px"/>
-      <button id="applyBg" class="btn" type="button">Apply</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label for="optFont" style="min-width:110px">Custom font</label>
-      <input id="optFont" type="text" placeholder="e.g. Inter, system-ui"/>
-      <button id="applyFont" class="btn" type="button">Apply</button>
-    </div>
+    <form id="prefsForm" autocomplete="off">
+      <div class="field">
+        <label class="field-label" for="optHideTitles">Hide titles</label>
+        <label class="toggle">
+          <input id="optHideTitles" type="checkbox" />
+          <span class="track"></span><span class="thumb"></span>
+        </label>
+      </div>
+      <div class="field">
+        <label class="field-label" for="optBgColor">Background color</label>
+        <input id="optBgColor" type="color" value="#000000" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="optBgFile">Background image (upload)</label>
+        <input id="optBgFile" type="file" accept="image/*" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="applyBgFile" class="btn" type="button">Apply</button>
+          <button id="clearBgImg" class="btn" type="button" title="Clear background image">Clear</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="optBgUrl">Background image URL</label>
+        <input id="optBgUrl" type="url" placeholder="https://… (optional)" />
+        <div style="display:flex;gap:8px;margin-top:8px"><button id="applyBgUrl" class="btn" type="button">Apply</button></div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="optFont">Custom font</label>
+        <input id="optFont" type="text" placeholder="e.g. Inter, system-ui" />
+        <div style="display:flex;gap:8px;margin-top:8px"><button id="applyFont" class="btn" type="button">Apply</button></div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--ring);margin:4px 0 12px">
+      <div class="field">
+        <label class="field-label">Export / Import</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="exportBtn" class="btn" type="button">Export settings</button>
+          <input id="importFile" type="file" accept="application/json" style="display:none" />
+          <button id="importBtn" class="btn" type="button">Import settings</button>
+        </div>
+      </div>
+    </form>
   </div>
 
   <template id="tileTemplate">
-    <a class="tile web-link" target="_blank" rel="noopener noreferrer">
+    <a class="tile web-link" target="_blank" rel="noopener noreferrer" draggable="true">
       <div class="bg"></div>
-      <div class="content">
-        <div class="text"><div class="titleText"></div></div>
-      </div>
+      <div class="content"><div class="titleText"></div></div>
       <div class="controls">
-        <button class="iconbtn" title="Edit" data-action="edit" aria-label="Edit" tabindex="-1">✎</button>
-        <button class="iconbtn" title="Remove" data-action="remove" aria-label="Remove" tabindex="-1">✕</button>
+        <button class="iconbtn" data-action="edit" title="Edit" aria-label="Edit">
+          <!-- Pencil -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 15.5-12.5z"/></svg>
+        </button>
+        <button class="iconbtn" data-action="remove" title="Remove" aria-label="Remove">
+          <!-- Trash -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
       </div>
     </a>
   </template>
 
+  <!-- Editor: icons only; options = color + image upload; includes clear image (trash); autosaves on input & closes on mouseleave -->
   <template id="editorTemplate">
     <div class="editor" role="group" aria-label="Tile settings">
-      <!-- Color group (palette icon + color input) -->
       <div class="group" title="Background color">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 100 18 2 2 0 002-2v-1a2 2 0 012-2h1a2 2 0 000-4h-1a2 2 0 01-2-2V7a4 4 0 00-4-4z"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 3a9 9 0 100 18 2 2 0 002-2v-1a2 2 0 012-2h1a2 2 0 000-4h-1a2 2 0 01-2-2V7a4 4 0 00-4-4z"/></svg>
         <input class="edColor" type="color" aria-label="Background color" />
       </div>
-      <!-- Image group (image icon + upload) -->
-      <div class="group" title="Background image">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 12.5l2.5 3 3.5-4.5L18 17H6l2.5-4.5zM9 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
+      <div class="group" title="Background image (upload)">
         <label class="fileLabel" aria-label="Upload image">
           <input class="edImgFile" type="file" accept="image/*" />
-          <span>🖼️</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 12.5l2.5 3 3.5-4.5L18 17H6l2.5-4.5zM9 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
         </label>
-        <div class="thumb" aria-hidden="true"></div>
+        <button class="iconbtn edClearImg" type="button" title="Remove background image" aria-label="Remove background image">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
       </div>
     </div>
   </template>
 
   <script>
-    // ——— Utilities ———
+    // —— Utilities ——
     const $ = (s, el=document) => el.querySelector(s);
     const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
+    function normalizeUrl(value){ let v=(value||'').trim(); if(!v) throw new Error('Empty URL'); if(!/^https?:\/\//i.test(v)) v='https://'+v; return new URL(v).href; }
+    function domainLabelFrom(url){ const host=new URL(url).hostname.replace(/^www\./i,''); if(/\.com$/i.test(host)){ const parts=host.replace(/\.com$/i,'').split('.'); return parts[parts.length-1]; } return host.split('.')[0]; }
+    function toHex(c){ const ctx=document.createElement('canvas').getContext('2d'); ctx.fillStyle=c; const cs=ctx.fillStyle; if(cs.startsWith('#')) return cs.length===4?`#${cs[1]}${cs[1]}${cs[2]}${cs[2]}${cs[3]}${cs[3]}`:cs; const m=cs.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); if(m){ const [r,g,b]=[+m[1],+m[2],+m[3]]; return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); } return '#222222'; }
 
-    function normalizeUrl(value){
-      let v = (value || '').trim();
-      if(!v) throw new Error('Empty URL');
-      if(!/^https?:\/\//i.test(v)) v = 'https://' + v;
-      const u = new URL(v);
-      return u.href;
-    }
-
-    function domainLabelFrom(url){
-      const host = new URL(url).hostname.replace(/^www\./i,'');
-      if(/\.com$/i.test(host)){
-        const withoutCom = host.replace(/\.com$/i,'');
-        const parts = withoutCom.split('.');
-        return parts[parts.length-1];
-      }
-      return host.split('.')[0];
-    }
-
-    function hashColor(input){
-      let h=0; for(let i=0;i<input.length;i++) h = (h*31 + input.charCodeAt(i)) >>> 0;
-      const hue = h % 360; const sat = 55 + (h % 20); const light = 44 + (h % 8);
-      return `hsl(${hue} ${sat}% ${light}%)`;
-    }
-
-    async function fetchTitleViaProxy(url){
-      const strip = url.replace(/^https?:\/\//i,'');
-      const tries = [`https://r.jina.ai/https://${strip}`, `https://r.jina.ai/http://${strip}`];
-      for(const proxy of tries){
-        try{ const res = await fetch(proxy, { mode:'cors' }); if(!res.ok) continue; const text = await res.text();
-          const t1 = text.match(/<title[^>]*>([^<]+)<\/title>/i);
-          if(t1 && t1[1]) return t1[1].trim().replace(/\s+/g,' ');
-        }catch(e){}
-      }
-      return domainLabelFrom(url);
-    }
-
-    function rgbToHex(c){
-      const ctx = document.createElement('canvas').getContext('2d');
-      ctx.fillStyle = c;
-      const cs = ctx.fillStyle;
-      if(cs.startsWith('#')) return cs.length===4 ? `#${cs[1]}${cs[1]}${cs[2]}${cs[2]}${cs[3]}${cs[3]}` : cs;
-      const m = cs.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      if(m){ const r=parseInt(m[1]), g=parseInt(m[2]), b=parseInt(m[3]); return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''); }
-      return '#222222';
-    }
-
-    // ——— State ———
-    const STORE_KEY = 'linkboard:v4';
-    const PREFS_KEY = 'linkboard:prefs:v3';
+    // —— State ——
+    const STORE_KEY='stu:items:v1';
+    const PREFS_KEY='stu:prefs:v1';
     /** @type {Array<{id:string,url:string,title:string,color:string,bgImg:string|null,created:number}>} */
-    let items = [];
-    let prefs = { hideTitles:false, bg:'#000000', font:'' };
+    let items=[];
+    let prefs={ hideTitles:false, bg:'#000000', bgImgData:null, bgImgUrl:'', font:'' };
 
-    function load(){
-      try{ items = JSON.parse(localStorage.getItem(STORE_KEY)||'[]') }catch{ items=[] }
-      try{ prefs = Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')) }catch{}
-      document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
-      if(prefs.font){ document.documentElement.style.setProperty('--font', prefs.font); }
-    }
-    function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(items)) }
+    function load(){ try{items=JSON.parse(localStorage.getItem(STORE_KEY)||'[]')}catch{items=[]} try{prefs=Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}'))}catch{} applyPrefsToDOM(); }
+    function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(items)); }
     function savePrefs(){ localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); }
     function uid(){ return Math.random().toString(36).slice(2,10) }
 
-    // ——— Render ———
-    const grid = document.getElementById('grid');
-    const empty = document.getElementById('emptyState');
-    const tpl = document.getElementById('tileTemplate');
-    const edTpl = document.getElementById('editorTemplate');
+    // —— Render ——
+    const grid=$('#grid'); const empty=$('#emptyState'); const tpl=$('#tileTemplate'); const edTpl=$('#editorTemplate');
 
     function render(){
-      grid.innerHTML = '';
-      empty.hidden = items.length !== 0;
-
+      grid.innerHTML=''; empty.hidden = items.length!==0;
       for(const it of items){
-        const node = tpl.content.firstElementChild.cloneNode(true);
+        const node=tpl.content.firstElementChild.cloneNode(true);
+        node.dataset.id = it.id; // for dragging
         node.href = it.url;
-        const bg = $('.bg', node);
-        const titleEl = $('.titleText', node);
-        const controls = $('.controls', node);
-
-        if(it.bgImg){
-          bg.style.backgroundImage = `url(${it.bgImg})`;
-          bg.style.backgroundColor = it.color || '#111';
-        }else{
-          bg.style.backgroundImage = 'none';
-          bg.style.backgroundColor = it.color || '#111';
-        }
-
-        const displayTitle = (it.title?.trim() || domainLabelFrom(it.url));
-        titleEl.textContent = displayTitle;
+        const bg=$('.bg',node); const titleEl=$('.titleText',node); const ctrls=$('.controls',node);
+        bg.style.backgroundColor = it.color || '#111';
+        bg.style.backgroundImage = it.bgImg ? `url(${it.bgImg})` : 'none';
+        titleEl.textContent = it.title?.trim() || domainLabelFrom(it.url);
         titleEl.classList.toggle('hidden', !!prefs.hideTitles);
 
-        controls.addEventListener('click', (e)=>{
-          const btn = e.target.closest('button'); if(!btn) return; e.preventDefault(); e.stopPropagation();
-          if(btn.dataset.action==='remove') removeItem(it.id);
-          if(btn.dataset.action==='edit') openEditor(node, it.id);
+        // Controls
+        ctrls.addEventListener('click', (e)=>{
+          const btn=e.target.closest('button'); if(!btn) return; e.preventDefault(); e.stopPropagation();
+          if(btn.dataset.action==='remove') { items = items.filter(x=>x.id!==it.id); save(); render(); }
+          if(btn.dataset.action==='edit') { openEditor(node, it.id); }
         });
+
+        // Prevent navigation when interacting with editor
+        node.addEventListener('click', (e)=>{ if(node.classList.contains('interacting')) e.preventDefault(); });
+
+        // Drag & drop
+        node.addEventListener('dragstart', (e)=>{ node.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', it.id); });
+        node.addEventListener('dragend', ()=>{ node.classList.remove('dragging'); });
 
         grid.appendChild(node);
       }
     }
-
-    function removeItem(id){ items = items.filter(x=>x.id!==id); save(); render(); }
 
     function openEditor(tileEl, id){
       if($('.editor', tileEl)) return; // one editor per tile
@@ -268,98 +240,89 @@
       const editor = edTpl.content.firstElementChild.cloneNode(true);
       const edColor = $('.edColor', editor);
       const edImgFile = $('.edImgFile', editor);
-      const thumb = $('.thumb', editor);
+      const edClear = $('.edClearImg', editor);
 
-      edColor.value = rgbToHex(it.color || '#222');
-      if(it.bgImg){ thumb.style.backgroundImage = `url(${it.bgImg})`; }
-
-      // Apply immediately on color change
-      edColor.addEventListener('input', ()=>{
-        it.color = edColor.value || it.color; save(); render();
-      });
-
-      // Image upload -> data URL -> persist
-      edImgFile.addEventListener('change', ()=>{
-        const file = edImgFile.files && edImgFile.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          it.bgImg = String(reader.result);
-          save(); render();
-        };
-        reader.readAsDataURL(file);
-      });
+      edColor.value = toHex(it.color || '#222222');
+      edColor.addEventListener('input', ()=>{ it.color = edColor.value || it.color; save(); render(); });
+      edImgFile.addEventListener('change', ()=>{ const f=edImgFile.files && edImgFile.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ it.bgImg = String(r.result); save(); render(); }; r.readAsDataURL(f); });
+      edClear.addEventListener('click', ()=>{ it.bgImg = null; save(); render(); });
 
       // Autosave & close when mouse leaves the editor
-      editor.addEventListener('mouseleave', ()=>{
-        // values already applied on input/change; just remove editor
-        editor.remove();
-      });
+      editor.addEventListener('mouseleave', ()=>{ editor.remove(); tileEl.classList.remove('interacting'); });
 
       tileEl.appendChild(editor);
-      // Prevent navigating when interacting with editor
+      tileEl.classList.add('interacting');
       editor.addEventListener('click', (e)=> e.stopPropagation(), true);
     }
 
-    // ——— Add flow (floating composer) ———
-    const fab = document.getElementById('fab');
-    const composer = document.getElementById('composer');
-    const form = document.getElementById('composerForm');
-    const urlInput = document.getElementById('urlInput');
-    const addBtn = document.getElementById('addBtn');
+    // —— Add flow ——
+    const fab=$('#fab'); const composer=$('#composer'); const form=$('#composerForm'); const urlInput=$('#urlInput'); const addBtn=$('#addBtn');
+    function toggleSheet(el, force){ const open = force ?? !el.classList.contains('open'); el.classList.toggle('open', open); if(open){ el.classList.add('pop'); void el.offsetWidth; el.classList.remove('pop'); try{navigator.vibrate && navigator.vibrate(10)}catch{} } return open; }
+    fab.addEventListener('click', ()=>{ const open = toggleSheet(composer); fab.setAttribute('aria-expanded', String(open)); fab.textContent = open ? '×' : '＋'; if(open){ setTimeout(()=> urlInput.focus(), 50); } });
 
-    function toggle(el, force){ const open = force ?? !el.classList.contains('open'); el.classList.toggle('open', open); return open; }
-
-    fab.addEventListener('click', ()=>{ const open = toggle(composer); fab.setAttribute('aria-expanded', String(open)); fab.textContent = open ? '×' : '＋'; if(open){ setTimeout(()=> urlInput.focus(), 50); }});
-
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault(); addBtn.disabled = true;
-      let url; try{ url = normalizeUrl(urlInput.value) }catch(err){ alert('Please enter a valid URL.'); addBtn.disabled=false; return; }
-      try{
-        const title = await fetchTitleViaProxy(url);
-        const it = { id: uid(), url, title, color: hashColor(new URL(url).hostname), bgImg: null, created: Date.now() };
-        items.unshift(it); save(); render(); urlInput.value=''; toggle(composer, false); fab.textContent='＋';
-      } catch(err){ console.error(err); alert('Could not add this link right now. Try again or enter a different URL.'); }
-      finally { addBtn.disabled=false; }
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      let url; try{ url = normalizeUrl(urlInput.value) }catch{ return alert('Please enter a valid URL.'); }
+      const it = { id:uid(), url, title:domainLabelFrom(url), color:'#222222', bgImg:null, created:Date.now() };
+      items.unshift(it); save(); render(); form.reset(); toggleSheet(composer,false); fab.textContent='＋';
     });
 
-    // Close composer when clicking outside
+    // Close sheets when clicking outside
     document.addEventListener('click', (e)=>{
       if(composer.classList.contains('open')){
         const within = composer.contains(e.target) || fab.contains(e.target);
-        if(!within){ toggle(composer, false); fab.textContent='＋'; }
+        if(!within){ toggleSheet(composer,false); fab.textContent='＋'; }
       }
       if(prefsSheet.classList.contains('open')){
         const within2 = prefsSheet.contains(e.target) || prefsBtn.contains(e.target);
-        if(!within2){ toggle(prefsSheet, false); prefsBtn.setAttribute('aria-expanded','false'); }
+        if(!within2){ toggleSheet(prefsSheet,false); prefsBtn.setAttribute('aria-expanded','false'); }
       }
     });
 
-    // ——— Preferences ———
-    const prefsBtn = document.getElementById('prefsBtn');
-    const prefsSheet = document.getElementById('prefs');
-    const optHideTitles = document.getElementById('optHideTitles');
-    const optBgColor = document.getElementById('optBgColor');
-    const optFont = document.getElementById('optFont');
-    const applyBg = document.getElementById('applyBg');
-    const applyFont = document.getElementById('applyFont');
+    // —— Drag reorder (grid-level handlers) ——
+    grid.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+    grid.addEventListener('drop', (e)=>{
+      e.preventDefault(); const fromId = e.dataTransfer.getData('text/plain'); const toTile = e.target.closest('.tile'); if(!fromId || !toTile) return; const toId = toTile.dataset.id; if(!toId || fromId===toId) return;
+      const fromIdx = items.findIndex(x=>x.id===fromId); const toIdx = items.findIndex(x=>x.id===toId);
+      if(fromIdx<0 || toIdx<0) return; const [moved] = items.splice(fromIdx,1); items.splice(toIdx,0,moved); save(); render();
+    });
+
+    // —— Preferences ——
+    const prefsBtn=$('#prefsBtn'); const prefsSheet=$('#prefs');
+    const optHideTitles=$('#optHideTitles'); const optBgColor=$('#optBgColor'); const optBgFile=$('#optBgFile'); const optBgUrl=$('#optBgUrl');
+    const applyBgFile=$('#applyBgFile'); const clearBgImg=$('#clearBgImg'); const applyBgUrl=$('#applyBgUrl');
+    const optFont=$('#optFont'); const applyFont=$('#applyFont');
+    const exportBtn=$('#exportBtn'); const importBtn=$('#importBtn'); const importFile=$('#importFile');
 
     function applyPrefsToDOM(){
       document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
-      document.documentElement.style.setProperty('--font', prefs.font || 'system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif');
+      document.documentElement.style.setProperty('--font', prefs.font || 'system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif');
+      const img = prefs.bgImgData || prefs.bgImgUrl || '';
+      document.body.style.backgroundImage = img ? `url(${img})` : 'none';
+      if(img){ document.body.style.backgroundSize='cover'; document.body.style.backgroundPosition='center'; }
       render();
     }
 
-    prefsBtn.addEventListener('click', ()=>{
-      const open = toggle(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open));
-      optHideTitles.checked = !!prefs.hideTitles; optBgColor.value = prefs.bg || '#000000'; optFont.value = prefs.font || '';
-    });
+    prefsBtn.addEventListener('click', ()=>{ const open = toggleSheet(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open)); if(open){ optHideTitles.checked=!!prefs.hideTitles; optBgColor.value=prefs.bg || '#000000'; optFont.value=prefs.font || ''; optBgUrl.value=prefs.bgImgUrl || ''; } });
 
     optHideTitles.addEventListener('change', ()=>{ prefs.hideTitles = optHideTitles.checked; savePrefs(); applyPrefsToDOM(); });
-    applyBg.addEventListener('click', ()=>{ prefs.bg = optBgColor.value || '#000000'; savePrefs(); applyPrefsToDOM(); });
-    applyFont.addEventListener('click', ()=>{ prefs.font = (optFont.value || '').trim(); savePrefs(); applyPrefsToDOM(); });
+    optBgColor.addEventListener('input', ()=>{ prefs.bg = optBgColor.value || '#000000'; savePrefs(); applyPrefsToDOM(); });
+    applyBgFile.addEventListener('click', ()=>{ if(!optBgFile.files || !optBgFile.files[0]) return alert('Choose an image file first.'); const r=new FileReader(); r.onload=()=>{ prefs.bgImgData=String(r.result); savePrefs(); applyPrefsToDOM(); }; r.readAsDataURL(optBgFile.files[0]); });
+    applyBgUrl.addEventListener('click', ()=>{ prefs.bgImgUrl = (optBgUrl.value||'').trim(); savePrefs(); applyPrefsToDOM(); });
+    clearBgImg.addEventListener('click', ()=>{ prefs.bgImgData=null; prefs.bgImgUrl=''; savePrefs(); applyPrefsToDOM(); });
+    applyFont.addEventListener('click', ()=>{ prefs.font = (optFont.value||'').trim(); savePrefs(); applyPrefsToDOM(); });
 
-    // ——— Init ———
+    // Export / Import
+    exportBtn.addEventListener('click', ()=>{
+      const data = { version:'stu-v1', exportedAt: new Date().toISOString(), items, prefs };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='stu-settings.json'; a.click(); URL.revokeObjectURL(url);
+    });
+    importBtn.addEventListener('click', ()=> importFile.click());
+    importFile.addEventListener('change', ()=>{ const f=importFile.files && importFile.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const data=JSON.parse(String(r.result)); if(!confirm('Import will replace current items and preferences. Continue?')) return; if(Array.isArray(data.items)) items=data.items; if(data.prefs && typeof data.prefs==='object') prefs=Object.assign(prefs, data.prefs); save(); savePrefs(); applyPrefsToDOM(); }catch(err){ alert('Invalid JSON file.'); } }; r.readAsText(f); });
+
+    // —— Init ——
     load(); render();
   </script>
 </body>
