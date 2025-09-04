@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Stu</title>
-  <meta name="description" content="Single‑file link board: add links, edit tile color or background image, drag to reorder, and tweak global preferences. All saved locally.">
+  <meta name="description" content="Single‑file link board: add links, edit tile color or background image, drag to reorder, and tweak general preferences. All saved locally.">
   <style>
     :root{
       --bg:#000000;           /* app background */
@@ -47,7 +47,7 @@
     #prefsBtn{bottom:90px;font-size:20px}
 
     /* Sheets (composer & prefs) */
-    .sheet{position:fixed;right:22px;z-index:10;width:min(640px,calc(100vw - 44px));background:var(--panel);border:1px solid var(--ring);border-radius:14px;padding:12px;opacity:0;visibility:hidden;transform:scale(.98);transition:opacity .14s ease,transform .14s ease,visibility .14s ease}
+    .sheet{position:fixed;right:22px;z-index:10;width:fit-content;background:var(--panel);border:1px solid var(--ring);border-radius:14px;padding:12px;opacity:0;visibility:hidden;transform:scale(.98);transition:opacity .14s ease,transform .14s ease,visibility .14s ease}
     .sheet.open{opacity:1;visibility:visible;transform:scale(1)}
     #composer{bottom:90px}
     #prefs{bottom:160px}
@@ -80,6 +80,11 @@
     .toggle input:checked ~ .thumb{transform:translateX(18px)}
     .toggle input:checked ~ .track{background:#111;border-color:#3a3a3a}
 
+    /* —— Lock mode —— */
+    body.locked .tile .controls{opacity:0 !important; pointer-events:none !important}
+    body.locked .tile[draggable="true"]{cursor:default}
+    body.locked .tile.dragging{opacity:1; outline:none}
+
     @media(max-width:520px){.grid{grid-auto-flow:column;grid-auto-columns:80%;overflow-x:auto;grid-template-columns:repeat(4,80vw)}}
   </style>
 </head>
@@ -104,6 +109,13 @@
   <!-- Preferences sheet -->
   <div id="prefs" class="sheet" role="dialog" aria-modal="true">
     <form id="prefsForm" autocomplete="off">
+      <div class="field">
+        <label class="field-label" for="optLock">Lock layout</label>
+        <label class="toggle">
+          <input id="optLock" type="checkbox" />
+          <span class="track"></span><span class="thumb"></span>
+        </label>
+      </div>
       <div class="field">
         <label class="field-label" for="optHideTitles">Hide titles</label>
         <label class="toggle">
@@ -194,7 +206,7 @@
     const PREFS_KEY='stu:prefs:v1';
     /** @type {Array<{id:string,url:string,title:string,color:string,bgImg:string|null,created:number}>} */
     let items=[];
-    let prefs={ hideTitles:false, bg:'#000000', bgImgData:null, bgImgUrl:'', font:'' };
+    let prefs={ hideTitles:false, bg:'#000000', bgImgData:null, bgImgUrl:'', font:'', lock:false };
 
     function load(){ try{items=JSON.parse(localStorage.getItem(STORE_KEY)||'[]')}catch{items=[]} try{prefs=Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY)||'{}'))}catch{} applyPrefsToDOM(); }
     function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(items)); }
@@ -216,8 +228,9 @@
         titleEl.textContent = it.title?.trim() || domainLabelFrom(it.url);
         titleEl.classList.toggle('hidden', !!prefs.hideTitles);
 
-        // Controls
+        // Controls (disabled when locked)
         ctrls.addEventListener('click', (e)=>{
+          if(prefs.lock) return; // ignore in lock mode
           const btn=e.target.closest('button'); if(!btn) return; e.preventDefault(); e.stopPropagation();
           if(btn.dataset.action==='remove') { items = items.filter(x=>x.id!==it.id); save(); render(); }
           if(btn.dataset.action==='edit') { openEditor(node, it.id); }
@@ -226,8 +239,9 @@
         // Prevent navigation when interacting with editor
         node.addEventListener('click', (e)=>{ if(node.classList.contains('interacting')) e.preventDefault(); });
 
-        // Drag & drop
-        node.addEventListener('dragstart', (e)=>{ node.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', it.id); });
+        // Drag & drop (disabled when locked)
+        node.setAttribute('draggable', String(!prefs.lock));
+        node.addEventListener('dragstart', (e)=>{ if(prefs.lock){ e.preventDefault(); return; } node.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', it.id); });
         node.addEventListener('dragend', ()=>{ node.classList.remove('dragging'); });
 
         grid.appendChild(node);
@@ -235,6 +249,7 @@
     }
 
     function openEditor(tileEl, id){
+      if(prefs.lock) return; // do not open editor when locked
       if($('.editor', tileEl)) return; // one editor per tile
       const it = items.find(x=>x.id===id); if(!it) return;
       const editor = edTpl.content.firstElementChild.cloneNode(true);
@@ -280,15 +295,16 @@
     });
 
     // —— Drag reorder (grid-level handlers) ——
-    grid.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+    grid.addEventListener('dragover', (e)=>{ if(prefs.lock) return; e.preventDefault(); });
     grid.addEventListener('drop', (e)=>{
-      e.preventDefault(); const fromId = e.dataTransfer.getData('text/plain'); const toTile = e.target.closest('.tile'); if(!fromId || !toTile) return; const toId = toTile.dataset.id; if(!toId || fromId===toId) return;
+      if(prefs.lock) return; e.preventDefault(); const fromId = e.dataTransfer.getData('text/plain'); const toTile = e.target.closest('.tile'); if(!fromId || !toTile) return; const toId = toTile.dataset.id; if(!toId || fromId===toId) return;
       const fromIdx = items.findIndex(x=>x.id===fromId); const toIdx = items.findIndex(x=>x.id===toId);
       if(fromIdx<0 || toIdx<0) return; const [moved] = items.splice(fromIdx,1); items.splice(toIdx,0,moved); save(); render();
     });
 
     // —— Preferences ——
     const prefsBtn=$('#prefsBtn'); const prefsSheet=$('#prefs');
+    const optLock=$('#optLock');
     const optHideTitles=$('#optHideTitles'); const optBgColor=$('#optBgColor'); const optBgFile=$('#optBgFile'); const optBgUrl=$('#optBgUrl');
     const applyBgFile=$('#applyBgFile'); const clearBgImg=$('#clearBgImg'); const applyBgUrl=$('#applyBgUrl');
     const optFont=$('#optFont'); const applyFont=$('#applyFont');
@@ -297,14 +313,16 @@
     function applyPrefsToDOM(){
       document.documentElement.style.setProperty('--bg', prefs.bg || '#000000');
       document.documentElement.style.setProperty('--font', prefs.font || 'system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif');
+      document.body.classList.toggle('locked', !!prefs.lock);
       const img = prefs.bgImgData || prefs.bgImgUrl || '';
       document.body.style.backgroundImage = img ? `url(${img})` : 'none';
       if(img){ document.body.style.backgroundSize='cover'; document.body.style.backgroundPosition='center'; }
       render();
     }
 
-    prefsBtn.addEventListener('click', ()=>{ const open = toggleSheet(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open)); if(open){ optHideTitles.checked=!!prefs.hideTitles; optBgColor.value=prefs.bg || '#000000'; optFont.value=prefs.font || ''; optBgUrl.value=prefs.bgImgUrl || ''; } });
+    prefsBtn.addEventListener('click', ()=>{ const open = toggleSheet(prefsSheet); prefsBtn.setAttribute('aria-expanded', String(open)); if(open){ optLock.checked=!!prefs.lock; optHideTitles.checked=!!prefs.hideTitles; optBgColor.value=prefs.bg || '#000000'; optFont.value=prefs.font || ''; optBgUrl.value=prefs.bgImgUrl || ''; } });
 
+    optLock && optLock.addEventListener('change', ()=>{ prefs.lock = optLock.checked; savePrefs(); applyPrefsToDOM(); });
     optHideTitles.addEventListener('change', ()=>{ prefs.hideTitles = optHideTitles.checked; savePrefs(); applyPrefsToDOM(); });
     optBgColor.addEventListener('input', ()=>{ prefs.bg = optBgColor.value || '#000000'; savePrefs(); applyPrefsToDOM(); });
     applyBgFile.addEventListener('click', ()=>{ if(!optBgFile.files || !optBgFile.files[0]) return alert('Choose an image file first.'); const r=new FileReader(); r.onload=()=>{ prefs.bgImgData=String(r.result); savePrefs(); applyPrefsToDOM(); }; r.readAsDataURL(optBgFile.files[0]); });
