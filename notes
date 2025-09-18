@@ -75,6 +75,10 @@
 - Composer `aria-expanded` not reset on outside close: clicking outside closes the composer and resets the `+` icon, but does not update `#fab`’s `aria-expanded` back to `false`.
 - Tile color edit clears image: changing a tile’s color sets `bgImg=null`, unintentionally removing an existing background image.
 - Import validation is loose: imported `items`/`prefs` are not schema-validated. Malformed data can cause inconsistent UI or runtime errors.
+- Image uploads limited (~3 images): storing images as base64 data URLs in `localStorage` quickly hits the ~5MB quota, so after a few uploads, saves start failing silently and images disappear on reload.
+  - Proposed fix: store images in IndexedDB as `Blob`s (e.g., object store `images` keyed by tile `id`), keep only a small reference (e.g., `imgKey` or boolean) in `items` in `localStorage`. On render, load the blob, create an object URL, and revoke when replaced.
+  - Mitigations: downscale and encode uploads to `image/webp` via `<canvas>` before persisting (e.g., max 800px, quality ~0.8); catch `QuotaExceededError` on save and show a user-visible error.
+  - Migration: on startup, detect legacy `bgImg` data URLs, write them to IndexedDB, replace with `imgKey`, and null the inline data; keep export/import paths that bundle images (e.g., include as base64 in export JSON, rehydrate IDB on import).
 
 **Backlog / Ideas**
 - Keyboard navigation and reordering (ARIA patterns for sortable grids).
