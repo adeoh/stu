@@ -1,0 +1,92 @@
+**Overview**
+- **Name:** Stu — personal start page with editable link tiles.
+- **Goal:** Quickly add, edit, and arrange web links; customize appearance; store everything locally in the browser.
+- **Storage:** Client-side only via `localStorage` (no server, no network calls).
+
+**Core Features**
+- **Add Link:** Opens composer sheet; user enters a URL; app normalizes to `https://` if missing; new tile is prepended to the grid.
+- **Edit Tile:** Per-tile inline editor allows background color or image upload; updates apply live.
+- **Reorder Tiles:** Drag and drop to reorder (mouse/touch pointer); persists order.
+- **Remove Tile:** Trash button on each tile removes it immediately.
+- **Empty State:** When no items exist, shows a hint to add a link.
+- **Local Persistence:** Items and preferences auto-save to `localStorage`.
+
+**Preferences**
+- **Lock:** Disables drag and per-tile editing when enabled.
+- **Background Color:** Sets app background; stored as hex.
+- **Background Image:** Optional image file; stored as data URL and applied to body.
+- **Show Titles:** Toggle to show/hide tile titles.
+- **Link Width:** Slider controlling CSS var `--tile-min` (120–320px).
+- **Title Size:** Slider controlling CSS var `--title-size` (12–28px).
+- **Border Radius:** Slider controlling CSS var `--radius` (4–24px).
+- **Font:** Custom font-family string applied to the app.
+- **Export/Import:** Download/upload JSON containing all items and preferences.
+
+**Data Model**
+- **Item:** `{ id:string, url:string, title:string, color:string, bgImg:string|null, created:number }`
+- **Prefs:** `{ lock:boolean, hideTitles:boolean, bg:string, bgImgData:string|null, font:string, tileMin:number, titleSize:number, radius:number }`
+- **Storage Keys:**
+  - Items: `stu:items:v2`
+  - Preferences: `stu:prefs:v2`
+- **Export JSON:** `{ version:'stu-v2', exportedAt:string, items:Array<Item>, prefs:Prefs }`
+
+**UI Elements**
+- **Grid:** `#grid` — responsive CSS grid of tiles; announces updates with `aria-live=polite`.
+- **Empty State:** `#emptyState` — shown when there are no items.
+- **Add Button:** `#fab` — toggles composer sheet and focuses URL input.
+- **Composer Sheet:** `#composer` with `#composerForm` and `#urlInput` for URL entry.
+- **Preferences Button:** `#prefsBtn` — toggles preferences sheet.
+- **Preferences Sheet:** `#prefs` — grouped controls using `<details>` accordion.
+- **Tile Template:** `#tileTemplate` — anchor tile with background and title; includes edit/remove controls.
+- **Editor Template:** `#editorTemplate` — inline controls for color and image upload.
+
+**Behavior**
+- **URL Normalization:** Ensures `http(s)`; prefixes `https://` when protocol is omitted; rejects empty/invalid.
+- **Default Title:** Derived from domain (e.g., `news.ycombinator.com` → `ycombinator`).
+- **Immediate Feedback:** Tile edits reflect instantly; saves on change.
+- **Outside Click Close:** Sheets and editors close when clicking outside; minor delay to avoid accidental closes.
+- **Locked Mode:** Prevents drag and per-tile editor activation.
+- **Drag & Drop:** Move tile A before tile B on drop; re-renders and persists order.
+
+**Non-Functional**
+- **Offline-first:** Entire app functions without network after first load.
+- **Privacy:** All data stays in browser storage; import/export is user-initiated.
+- **Performance:** Rendering uses document fragments and minimal reflow; grid is virtual-less; acceptable for small/medium lists.
+- **Compatibility:** Modern evergreen browsers (Chrome, Edge, Firefox, Safari). No IE support.
+
+**Acceptance Criteria**
+- Adding a valid URL creates a new tile at index 0 with default color `#222222` and a derived title.
+- Invalid or empty URL shows an alert and does not add a tile.
+- Editing color or uploading a tile image updates the tile immediately and persists on reload.
+- Clicking remove deletes the tile without confirmation and persists on reload.
+- Dragging one tile over another reorders and persists the new order on reload.
+- Toggling Lock disables dragging and hides editor interactions.
+- Changing preferences (bg color/image, tile width, title size, radius, font, show titles) applies instantly and persists on reload.
+- Export downloads a JSON with `items` and `prefs`; Import replaces current items and preferences after confirmation.
+
+**Known Constraints / Notes**
+- Image uploads are stored as data URLs; no enforced file size limit (practical limits depend on browser memory).
+- Reordering is pointer-based; no keyboard reordering yet.
+- Remove has no confirmation dialog.
+
+**Known Bugs**
+- Editor auto-close leak: when the inline editor closes via the timeout, the document-level `pointerdown` listener added for outside-click is not removed, leaving a dangling listener. Fix: remove the listener in the scheduled close handler as well.
+- Double render on init: `load()` calls `applyPrefsToDOM()` which calls `render()`, and then `render()` is called again in the init block. Minor perf redundancy; remove the extra `render()`.
+- Composer `aria-expanded` not reset on outside close: clicking outside closes the composer and resets the `+` icon, but does not update `#fab`’s `aria-expanded` back to `false`.
+- Tile color edit clears image: changing a tile’s color sets `bgImg=null`, unintentionally removing an existing background image.
+- Import validation is loose: imported `items`/`prefs` are not schema-validated. Malformed data can cause inconsistent UI or runtime errors.
+
+**Backlog / Ideas**
+- Keyboard navigation and reordering (ARIA patterns for sortable grids).
+- Optional confirm on remove; undo snackbar.
+- Per-tile title editing and custom link icons/favicons.
+- Multi-select and batch operations.
+- Theming presets and one-click resets.
+- Cloud sync (opt-in) or shareable URLs.
+
+**Testing Checklist**
+- Add/edit/remove flows across desktop and mobile.
+- Drag reorder with lock on/off.
+- Preferences: each control applies and persists.
+- Export/import round trip produces identical state.
+- Reload restores items and preferences.
